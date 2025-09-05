@@ -72,6 +72,56 @@
   label{font-size:14px}
   #result{margin-top:12px;font-size:18px;font-weight:700}
   .small{font-size:13px;color:#ddd}
+  /* Responsive cho điện thoại */
+@media (max-width: 768px) {
+  .wrap {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .wheel-wrap {
+    width: 90vw;
+    height: 90vw;
+    max-width: 360px;
+    max-height: 360px;
+  }
+
+  canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  #centerImg {
+    width: 90px;
+    height: 90px;
+    border-width: 3px;
+  }
+
+  .pointer {
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-right: 20px solid #fff;
+    left: 96%;
+  }
+
+  .controls {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  input, button, select {
+    font-size: 14px;
+    padding: 6px;
+  }
+
+  label {
+    font-size: 13px;
+  }
+
+  #result {
+    font-size: 16px;
+  }
+}
 </style>
 </head>
 <body>
