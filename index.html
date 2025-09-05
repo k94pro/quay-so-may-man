@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vòng quay may mắn — sửa admin chọn sau random</title>
+<style>
+  :root{--bg:#0f392f;--card:#141414;--accent:#2ecc71}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:#fff;font-family:Arial, Helvetica, sans-serif;}
+  .wrap{width:820px;padding:20px;text-align:center;}
+  .wheel-wrap{width:500px;height:500px;margin:0 auto;position:relative;display:inline-block;}
+  canvas{display:block;border-radius:50%;background:transparent;}
+
+  .pointer{
+    position:absolute;
+    top:50%;
+    left:92%;
+    transform:translateY(-50%);
+    width:0;height:0;
+    border-top:18px solid transparent;
+    border-bottom:18px solid transparent;
+    border-right:28px solid #ffffff;
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    z-index: 20;
+    margin-left:6px;
+  }
+
+  #centerWrap {
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    z-index:15;
+  }
+  #centerImg {
+    background-image: url(logo-skoda.jpg);
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    width: 140px;
+    height: 140px;
+    border-radius:50%;
+    border:4px solid rgba(0,0,0,0.35);
+    cursor:pointer;
+    animation: spinBtn 4s linear infinite;
+  }
+  @keyframes spinBtn {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  #admin {
+    width: 100%;
+    display: flex;
+    margin-top: 1000px;
+    justify-content: center;
+  }
+
+  .controls{margin-top:18px;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
+  input,button,select{padding:8px;border-radius:8px;border:1px solid #333;background:#111;color:#fff}
+  button{background:var(--accent);color:#0a0a0a;font-weight:700;cursor:pointer;border:none}
+  label{font-size:14px}
+  #result{margin-top:12px;font-size:18px;font-weight:700}
+  .small{font-size:13px;color:#ddd}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>🎡 Vòng quay may mắn 🎡</h2>
+
+    <div class="wheel-wrap">
+      <canvas id="wheel" width="500" height="500"></canvas>
+      <div class="pointer" title="Kết quả đọc theo mũi tên này"></div>
+      <div id="centerWrap"><div id="centerImg" title="Click để quay"></div></div>
+    </div>
+
+    <div id="result">Kết quả: —</div>
+
+    <div class="controls">
+      <label>Số ô:
+        <input id="numItems" type="number" value="12" min="2" max="100" style="width:90px">
+      </label>
+
+      <label>Màu 1: <input id="color1" type="color" value="#9FE8B8"></label>
+      <label>Màu 2: <input id="color2" type="color" value="#E9EEF0"></label>
+
+      <button hidden id="shuffleBtn">Randomize order</button>
+
+      <div id="admin">
+        <label style="display:flex;align-items:center;gap:6px">
+            <input id="adminChk" type="checkbox">
+        </label>
+
+        <input id="target" type="text" style="width:140px">
+        <button hidden id="btnTo">Quay tới (admin)</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ====== Cấu hình & trạng thái ====== */
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const CX = W/2, CY = H/2;
+const R = 220;
+let isSpinning = false;
+let angle = 0;
+
+let items = []; // mảng label (string)
+let N = 0;
+let stepDeg = 0, stepRad = 0;
+
+/* khởi tạo mảng items (sinh 1..num) và xáo trộn */
+function initItems(num, doShuffle = true){
+  items = Array.from({length:num}, (_,i)=> String(i+1));
+  if(doShuffle){
+    for(let i=items.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+  }
+  N = items.length;
+  stepDeg = 360 / N;
+  stepRad = 2*Math.PI / N;
+}
+
+/* vẽ phân đoạn */
+function drawSegments(){
+  const c1 = document.getElementById('color1').value;
+  const c2 = document.getElementById('color2').value;
+  for(let i=0;i<N;i++){
+    const start = i*stepRad, end = (i+1)*stepRad;
+    ctx.beginPath();
+    ctx.moveTo(CX,CY);
+    ctx.arc(CX,CY,R,start,end);
+    ctx.closePath();
+    ctx.fillStyle = (i%2===0) ? c1 : c2;
+    ctx.fill();
+    ctx.strokeStyle="#222"; ctx.lineWidth = 1; ctx.stroke();
+
+    // text radial
+    ctx.save();
+    ctx.translate(CX,CY);
+    const mid = start + (end-start)/2;
+    ctx.rotate(mid);
+    ctx.textAlign='right';
+    ctx.fillStyle='#111';
+    ctx.font='bold 14px Arial';
+    // tăng khoảng cách chữ khi N lớn
+    const offset = Math.max(R - 14, R - 20);
+    ctx.fillText(items[i], offset, 6);
+    ctx.restore();
+  }
+}
+
+/* render chính */
+function render(){
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(CX,CY);
+  ctx.rotate(angle * Math.PI/180);
+  ctx.translate(-CX,-CY);
+  drawSegments();
+  ctx.restore();
+
+  // vòng trong
+  ctx.beginPath();
+  ctx.arc(CX,CY,78,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+}
+
+/* tìm index thắng dựa vào góc cuối */
+function getWinnerIndex(finalAngleDeg){
+  let bestIdx=0, bestDiff=1e9;
+  for(let i=0;i<N;i++){
+    let center = (i*stepDeg + stepDeg/2 + finalAngleDeg) % 360;
+    if(center < 0) center += 360;
+    let diff = Math.min(Math.abs(center - 0), Math.abs(360 - center));
+    if(diff < bestDiff){ bestDiff = diff; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
+/* highlight ô thắng */
+function highlightWinner(index){
+  // vẽ overlay nhẹ lên ô thắng
+  ctx.save();
+  ctx.translate(CX,CY);
+  ctx.rotate(angle * Math.PI/180);
+  ctx.translate(-CX,-CY);
+
+  const start = index * stepRad;
+  const end = start + stepRad;
+  ctx.beginPath();
+  ctx.moveTo(CX,CY);
+  ctx.arc(CX,CY,R,start,end);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,215,0,0.25)';
+  ctx.fill();
+
+  // vẽ viền nổi
+  ctx.beginPath();
+  ctx.moveTo(CX,CY);
+  ctx.arc(CX,CY,R,start,end);
+  ctx.closePath();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(255,215,0,0.9)';
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* animate spin đến góc tuyệt đối targetAngleDeg */
+function animateSpin(targetAngleDeg, duration = 4200){
+  if(isSpinning) return;
+  isSpinning = true;
+
+  // pause center image rotation for effect
+  const centerImg = document.getElementById('centerImg');
+  if(centerImg) centerImg.style.animationPlayState = 'paused';
+
+  const startAngle = angle;
+  const startTime = performance.now();
+
+  function frame(now){
+    const t = Math.min((now - startTime)/duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3); // easeOut cubic
+    angle = startAngle + (targetAngleDeg - startAngle) * ease;
+    render();
+
+    if(t < 1){
+      requestAnimationFrame(frame);
+    } else {
+      // end
+      isSpinning = false;
+      if(centerImg) centerImg.style.animationPlayState = 'running';
+
+      const final = ((angle % 360) + 360) % 360;
+      const winner = getWinnerIndex(final);
+      // redraw + highlight
+      render();
+      highlightWinner(winner);
+      document.getElementById('result').textContent = `🎉 Kết quả: ${items[winner]}`;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* Tính stop relative: từ góc hiện tại + extraTurns*360 + delta sao cho label nằm đúng mũi tên */
+function computeStopForIndexRelative(index, extraTurns = 5){
+  const delta = (360 - ((index*stepDeg + stepDeg/2 + angle) % 360)) % 360;
+  return angle + extraTurns*360 + delta;
+}
+
+/* Random stop: chọn index random rồi compute */
+function computeRandomStopRelative(extraTurns = 5){
+  const rnd = Math.floor(Math.random()*N);
+  return computeStopForIndexRelative(rnd, extraTurns);
+}
+
+/* ---------- UI handlers ---------- */
+
+// click center image => nếu admin checked thì dùng label tìm index, nếu không => random
+document.getElementById('centerImg').addEventListener('click', ()=>{
+  if(isSpinning) return;
+  const admin = document.getElementById('adminChk').checked;
+  const targetInput = document.getElementById('target').value.trim();
+  if(admin){
+    if(!targetInput){ alert('Nhập label cần trúng (theo nội dung item hiện tại).'); return; }
+    const idx = items.indexOf(String(targetInput));
+    if(idx === -1){ alert(`Không tìm thấy item có label "${targetInput}". Kiểm tra lại hoặc dùng Randomize order để xem labels.`); return; }
+    animateSpin(computeStopForIndexRelative(idx, 5));
+  } else {
+    animateSpin(computeRandomStopRelative(5));
+  }
+});
+
+// button admin (explicit)
+document.getElementById('btnTo').addEventListener('click', ()=>{
+  if(isSpinning) return;
+  const targetInput = document.getElementById('target').value.trim();
+  if(!targetInput){ alert('Nhập label cần trúng.'); return; }
+  const idx = items.indexOf(String(targetInput));
+  if(idx === -1){ alert(`Không tìm thấy item có label "${targetInput}".`); return; }
+  animateSpin(computeStopForIndexRelative(idx, 5));
+});
+
+// shuffle order button
+document.getElementById('shuffleBtn').addEventListener('click', ()=>{
+  if(isSpinning) return;
+  // shuffle items in place
+  for(let i=items.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  render();
+  document.getElementById('result').textContent = 'Đã random order.';
+});
+
+// change number of items
+document.getElementById('numItems').addEventListener('change', ()=>{
+  if(isSpinning) return;
+  const num = parseInt(document.getElementById('numItems').value, 10);
+  if(!Number.isFinite(num) || num < 2 || num > 100){ alert('Số ô hợp lệ: 2..100'); return; }
+  initItems(num, true);
+  render();
+  document.getElementById('result').textContent = 'Đã tạo ' + num + ' ô (đã random).';
+});
+
+// change colors
+document.getElementById('color1').addEventListener('input', render);
+document.getElementById('color2').addEventListener('input', render);
+
+/* khởi tạo ban đầu */
+initItems(parseInt(document.getElementById('numItems').value, 10), true);
+render();
+</script>
+</body>
+</html>
