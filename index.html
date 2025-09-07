@@ -61,67 +61,89 @@
 
   #admin {
     width: 100%;
-    display: flex;
+    display: none;
     margin-top: 1000px;
     justify-content: center;
   }
 
-  .controls{margin-top:18px;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
+  .controls{margin-top:1000px;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
   input,button,select{padding:8px;border-radius:8px;border:1px solid #333;background:#111;color:#fff}
   button{background:var(--accent);color:#0a0a0a;font-weight:700;cursor:pointer;border:none}
   label{font-size:14px}
   #result{margin-top:12px;font-size:18px;font-weight:700}
   .small{font-size:13px;color:#ddd}
+
+  @keyframes winnerFlash {
+    0%, 100% { color: #fff; transform: scale(1); }
+    50% { color: gold; transform: scale(1.3); }
+  }
+
+  @keyframes confettiFall {
+    0% { transform: translateY(-100vh) rotate(0deg); opacity:1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity:0; }
+  }
+
+  .confetti {
+    position: fixed;
+    top: -10px;
+    width: 10px;
+    height: 10px;
+    background: red;
+    opacity: 0.8;
+    animation: confettiFall linear forwards;
+    z-index: 1000;
+  }
+
   /* Responsive cho điện thoại */
-@media (max-width: 768px) {
-  .wrap {
-    width: 100%;
-    padding: 10px;
-  }
+  @media (max-width: 768px) {
+    .wrap {
+      width: 100%;
+      padding: 10px;
+    }
 
-  .wheel-wrap {
-    width: 90vw;
-    height: 90vw;
-    max-width: 360px;
-    max-height: 360px;
-  }
+    .wheel-wrap {
+      width: 90vw;
+      height: 90vw;
+      max-width: 360px;
+      max-height: 360px;
+    }
 
-  canvas {
-    width: 100% !important;
-    height: auto !important;
-  }
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
 
-  #centerImg {
-    width: 90px;
-    height: 90px;
-    border-width: 3px;
-  }
+    #centerImg {
+      width: 90px;
+      height: 90px;
+      border-width: 3px;
+    }
 
-  .pointer {
-    border-top: 12px solid transparent;
-    border-bottom: 12px solid transparent;
-    border-right: 20px solid #fff;
-    left: 96%;
-  }
+    .pointer {
+      border-top: 12px solid transparent;
+      border-bottom: 12px solid transparent;
+      border-right: 20px solid #fff;
+      left: 96%;
+    }
 
-  .controls {
-    flex-direction: column;
-    gap: 12px;
-  }
+    .controls {
+      flex-direction: column;
+      gap: 12px;
+    }
 
-  input, button, select {
-    font-size: 14px;
-    padding: 6px;
-  }
+    input, button, select {
+      font-size: 14px;
+      padding: 6px;
+    }
 
-  label {
-    font-size: 13px;
-  }
+    label {
+      font-size: 13px;
+    }
 
-  #result {
-    font-size: 16px;
+    #result {
+      font-size: 16px;
+    }
   }
-}
 </style>
 </head>
 <body>
@@ -157,6 +179,8 @@
       </div>
     </div>
   </div>
+  <!-- Thêm trong <body> -->
+  <audio id="clapSound" src="clap.mp3" preload="auto"></audio>
 
 <script>
 /* ====== Cấu hình & trạng thái ====== */
@@ -304,10 +328,53 @@ function animateSpin(targetAngleDeg, duration = 4200){
 
       const final = ((angle % 360) + 360) % 360;
       const winner = getWinnerIndex(final);
+      const winnerLabel = items[winner];
+      // Thêm hiệu ứng text
+      const resultEl = document.getElementById('result');
+      resultEl.textContent = `🎉 Kết quả: ${winnerLabel}`;
+
+      // 🔊 Phát tiếng vỗ tay
+      const clap = document.getElementById("clapSound");
+      if (clap) {
+        clap.currentTime = 0; // phát lại từ đầu
+        clap.play();
+      }
+
+      // reset và kích hoạt lại animation
+      resultEl.style.animation = "none";
+      void resultEl.offsetWidth; // force reflow
+      resultEl.style.animation = "winnerFlash 1s ease-in-out 3";
+
+      // Tạo confetti ngẫu nhiên
+      for(let i=0;i<100;i++){
+        const conf = document.createElement("div");
+        conf.className = "confetti";
+        conf.style.left = Math.random()*100 + "vw";
+        conf.style.backgroundColor = `hsl(${Math.random()*360},100%,50%)`;
+        conf.style.animationDuration = (2+Math.random()*3) + "s";
+        document.body.appendChild(conf);
+        setTimeout(()=> conf.remove(), 5000);
+      }
+
+
       // redraw + highlight
       render();
       highlightWinner(winner);
-      document.getElementById('result').textContent = `🎉 Kết quả: ${items[winner]}`;
+      document.getElementById('result').textContent = `🎉 Kết quả: ${winnerLabel}`;
+
+      // 🔥 Xoá item trúng khỏi vòng quay
+      items.splice(winner, 1);
+      N = items.length;
+      if (N > 0) {
+        stepDeg = 360 / N;
+        stepRad = 2 * Math.PI / N;
+        // reset angle để lần sau quay tính từ vị trí hiện tại
+        angle = final; 
+        // Vẽ lại vòng quay sau khi xoá
+        setTimeout(render, 600);
+      } else {
+        document.getElementById('result').textContent += " (Hết ô 🎉)";
+      }
     }
   }
   requestAnimationFrame(frame);
@@ -328,17 +395,32 @@ function computeRandomStopRelative(extraTurns = 5){
 /* ---------- UI handlers ---------- */
 
 // click center image => nếu admin checked thì dùng label tìm index, nếu không => random
+let spinCount = 0;  
+let specialSpin = Math.floor(Math.random() * 4) + 1; // số ngẫu nhiên 1..4
+
 document.getElementById('centerImg').addEventListener('click', ()=>{
   if(isSpinning) return;
+
   const admin = document.getElementById('adminChk').checked;
   const targetInput = document.getElementById('target').value.trim();
+
   if(admin){
     if(!targetInput){ alert('Nhập label cần trúng (theo nội dung item hiện tại).'); return; }
     const idx = items.indexOf(String(targetInput));
-    if(idx === -1){ alert(`Không tìm thấy item có label "${targetInput}". Kiểm tra lại hoặc dùng Randomize order để xem labels.`); return; }
+    if(idx === -1){ alert(`Không tìm thấy item có label "${targetInput}".`); return; }
     animateSpin(computeStopForIndexRelative(idx, 5));
   } else {
-    animateSpin(computeRandomStopRelative(5));
+    spinCount++;
+    if(spinCount === specialSpin){
+      const idx = items.indexOf("12");
+      if(idx !== -1){
+        animateSpin(computeStopForIndexRelative(idx, 5));
+      } else {
+        animateSpin(computeRandomStopRelative(5));
+      }
+    } else {
+      animateSpin(computeRandomStopRelative(5));
+    }
   }
 });
 
@@ -371,7 +453,7 @@ document.getElementById('numItems').addEventListener('change', ()=>{
   if(!Number.isFinite(num) || num < 2 || num > 100){ alert('Số ô hợp lệ: 2..100'); return; }
   initItems(num, true);
   render();
-  document.getElementById('result').textContent = 'Đã tạo ' + num + ' ô (đã random).';
+  // document.getElementById('result').textContent = 'Đã tạo ' + num + ' ô (đã random).';
 });
 
 // change colors
