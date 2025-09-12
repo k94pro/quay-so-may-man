@@ -46,7 +46,7 @@
     background-image: url(logo-skoda.jpg);
     background-size: cover;
     background-position: center center;
-    background-repeat: no-repeat;
+    /* background-repeat: no-repeat; */
     width: 140px;
     height: 140px;
     border-radius:50%;
@@ -92,6 +92,12 @@
     opacity: 0.8;
     animation: confettiFall linear forwards;
     z-index: 1000;
+  }
+  
+  #toggleLogo {
+    background: #ffcc00;
+    color: #000;
+    font-weight: bold;
   }
 
   /* Responsive cho điện thoại */
@@ -166,6 +172,8 @@
       <label>Màu 1: <input id="color1" type="color" value="#9FE8B8"></label>
       <label>Màu 2: <input id="color2" type="color" value="#E9EEF0"></label>
       <label>Nền: <input id="bgColor" type="color" value="#0f392f"></label>
+
+      <button id="toggleLogo">Đổi logo</button>
 
       <button hidden id="shuffleBtn">Randomize order</button>
 
@@ -463,6 +471,20 @@ document.getElementById('color2').addEventListener('input', render);
 /* khởi tạo ban đầu */
 initItems(parseInt(document.getElementById('numItems').value, 10), true);
 render();
+
+// Toggle logo
+const centerImg = document.getElementById('centerImg');
+let isLogo1 = true; // trạng thái ban đầu
+
+document.getElementById('toggleLogo').addEventListener('click', ()=>{
+  if (isLogo1) {
+    centerImg.style.backgroundImage = "url('logo-skoda-2.jpg')";
+  } else {
+    centerImg.style.backgroundImage = "url('logo-skoda.jpg')";
+  }
+  isLogo1 = !isLogo1;
+});
+
 </script>
 </body>
 </html>
